@@ -108,7 +108,7 @@ def main():
 			x = self.s(x)
 			return x
 
-
+	"""
 	class Net_v2(nn.Module):
 		def __init__(self):
 			super(Net_v2, self).__init__()
@@ -130,8 +130,8 @@ def main():
 			x = self.s(x)
 			#x = x*self.max_value
 			return x
-
-		class Net_v3(nn.Module):
+	
+	class Net_v3(nn.Module):
 		def __init__(self):
 			super(Net_v3, self).__init__()
 			#self.max_value = 10000
@@ -268,7 +268,7 @@ def main():
 	compressed_mask = calculate_mask1()
 	mask1 = compressed_mask.unsqueeze(1).repeat(1, 127, 1).view(-1, compressed_mask.size(1))[:-63:]
 	mask2 = calculate_mask2()
-
+	"""
 
 	class squareRootLoss(nn.Module):
 		def __init__(self, epsilon=0.000001):
@@ -280,9 +280,10 @@ def main():
 			return loss.mean()  # Return the mean loss across the batch
 
 	
-	net = Net_v4(mask1, mask2)
+	#net = Net_v4(mask1, mask2)
+	net = Net_v3()
 	saving_path = ""
-	saving_path = "D:/private/chess engine/nets/2024-10-02_23-28-00"
+	saving_path = "D:/private/chess engine/nets/best_for_now"
 	if saving_path=="":
 		starting_program_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 		saving_path = "D:/private/chess engine/nets/"+str(starting_program_time)
@@ -293,13 +294,16 @@ def main():
 		with open(saving_path+"/iterations.txt", "w") as f:
 			f.write(str(iterations))
 	else:
-		net.load_state_dict(torch.load(saving_path+"/2.pth")['model_state_dict'])
+		net.load_state_dict(torch.load(saving_path+"/9.pth")['model_state_dict'])
+		#print loss
+		print(torch.load(saving_path+"/9.pth")['test_loss'])
 
 
 	
 	net = net.to(device)
 
-	criterion = squareRootLoss()
+	#criterion = squareRootLoss()
+	criterion = nn.MSELoss()
 
 
 	
@@ -326,7 +330,7 @@ def main():
 			y_pred = output
 
 			# Apply condition: Only consider y_true values between -1 and 1
-			condition = (y_true > -1) & (y_true < 1)
+			condition = (y_true > -1) & (y_true <1)
 
 			# Apply the condition to filter both predictions and true values
 			filtered_y_true = y_true[condition]
@@ -340,8 +344,8 @@ def main():
 
 			#abs_error_sum += torch.sum(torch.abs(output - test_batch[1].to(device))).item()
 			#relative_abs_error_sum += torch.sum(torch.abs(output - test_batch[1].to(device)) / torch.maximum(torch.abs(test_batch[1].to(device)), torch.tensor(0.0100, device=device))).item()
-			for i in range(len(test_batch[1])):
-				print(f"{(output[i].item()*10000):.0f} {(test_batch[1][i].item()*10000):.0f}")
+			#for i in range(len(test_batch[1])):
+				#print(f"{(output[i].item()*10000):.0f} {(test_batch[1][i].item()*10000):.0f}")
 			print("|", end="")
 		
 	print(f"test loss: {running_loss_test/(len(test_dataset)/batch_size)}")

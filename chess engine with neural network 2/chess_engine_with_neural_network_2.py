@@ -383,7 +383,7 @@ def main():
 	test_elements_number = 1660516
 
 	#train dataset
-	dataset = CustomDataset(input_bin_file_train, label_bin_file_train, input_size, label_size, train_elements_number)
+	#dataset = CustomDataset(input_bin_file_train, label_bin_file_train, input_size, label_size, train_elements_number)
 	#test dataset
 	test_dataset = CustomDataset(input_bin_file_test, label_bin_file_test, input_size, label_size, test_elements_number)
 
@@ -433,7 +433,7 @@ def main():
 			x = x.view(-1, 790)
 			x = self.s(x)
 			return x
-	"""
+	
 
 	class Net_v2(nn.Module):
 		def __init__(self):
@@ -482,26 +482,28 @@ def main():
 	"""
 	
 	class SparseConnectedLayer(nn.Module):
-		def __init__(self, in_features, out_features, mask):
+		def __init__(self, in_features, out_features, mask, nonlinearity, negative_slope=0):
 			super(SparseConnectedLayer, self).__init__()
-			self.weight = nn.Parameter(torch.randn(out_features, in_features))
-			self.bias = nn.Parameter(torch.randn(out_features))
+			#initialize weights using torch.nn.init.kaiming_normal_()
+			self.weight = nn.Parameter(torch.zeros(out_features, in_features))
+			torch.nn.init.kaiming_normal_(self.weight, a=negative_slope, nonlinearity=nonlinearity)
+			self.bias = nn.Parameter(torch.zeros(out_features))
 			self.register_buffer('mask', mask)
     
 		def forward(self, x):
 			masked_weight = self.weight * self.mask
-			return torch.matmul(x, masked_weight.T) + self.bias
+			return torch.sparse.mm(x, masked_weight.T.to_sparse()) + self.bias
 
 	
 	class Net_v4(nn.Module):#sparse layers
 		def __init__(self, mask1, mask2):
 			super(Net_v4, self).__init__()
 			self.s = nn.Sequential(
-				SparseConnectedLayer(790, 8192, mask1),
+				SparseConnectedLayer(790, 8192, mask1, 'leaky_relu', 0.01),
 				nn.LeakyReLU(),
-				SparseConnectedLayer(8192, 4096, mask2),
+				SparseConnectedLayer(8192, 8192, mask2, 'leaky_relu', 0.01),
 				nn.LeakyReLU(),
-				nn.Linear(4096, 2024),
+				nn.Linear(8192, 2024),
 				nn.LeakyReLU(),
 				nn.Linear(2024, 512),
 				nn.LeakyReLU(),
@@ -569,6 +571,7 @@ def main():
 		mask[64][64*12:790] = 1
 		return mask
 
+	"""
 	def calculate_mask2():
 		mask = torch.zeros(4096, 8192)
 		for i in range(64):
@@ -577,7 +580,58 @@ def main():
 		for i in range(64):
 			mask[64*63+i][64*127:64*127+64] = 1
 		return mask
+	"""
 
+	def calculate_mask2():
+		mask = torch.zeros(65, 8192)
+		for i in range(64):
+			for j in range(64):
+				mask[i][64*127+j] = 1#turn and castling rights
+
+		for i in range(64):
+			x = i%8
+			y = i//8
+			mask[i][y*8*127:(y+1)*8*127:] = 1
+			for j in range(8):
+				mask[i][j*127*8+x*127:j*127*8+x*127+127] = 1
+			for j in range(8):
+				for k in range(8):
+					if j+k==x+y or j-k==x-y:
+						mask[i][j*127+k*127*8:(j*127+k*127*8)+127] = 1
+			if x>1:
+				if y>1:
+					mask[i][(y-2)*8*127+(x-1)*127:(y-2)*8*127+(x-1)*127+127] = 1
+					mask[i][(y-1)*8*127+(x-2)*127:(y-1)*8*127+(x-2)*127+127] = 1
+				elif y>0:
+					mask[i][(y-1)*8*127+(x-2)*127:(y-1)*8*127+(x-2)*127+127] = 1
+				if y<6:
+					mask[i][(y+2)*8*127+(x-1)*127:(y+2)*8*127+(x-1)*127+127] = 1
+					mask[i][(y+1)*8*127+(x-2)*127:(y+1)*8*127+(x-2)*127+127] = 1
+				elif y<7:
+					mask[i][(y+1)*8*127+(x-2)*127:(y+1)*8*127+(x-2)*127+127] = 1
+			elif x>0:
+				if y>1:
+					mask[i][(y-2)*8*127+(x-1)*127:(y-2)*8*127+(x-1)*127+127] = 1
+				if y<6:
+					mask[i][(y+2)*8*127+(x-1)*127:(y+2)*8*127+(x-1)*127+127] = 1
+			if x<6:
+				if y>1:
+					mask[i][(y-2)*8*127+(x+1)*127:(y-2)*8*127+(x+1)*127+127] = 1
+					mask[i][(y-1)*8*127+(x+2)*127:(y-1)*8*127+(x+2)*127+127] = 1
+				elif y>0:
+					mask[i][(y-1)*8*127+(x+2)*127:(y-1)*8*127+(x+2)*127+127] = 1
+				if y<6:
+					mask[i][(y+2)*8*127+(x+1)*127:(y+2)*8*127+(x+1)*127+127] = 1
+					mask[i][(y+1)*8*127+(x+2)*127:(y+1)*8*127+(x+2)*127+127] = 1
+				elif y<7:
+					mask[i][(y+1)*8*127+(x+2)*127:(y+1)*8*127+(x+2)*127+127] = 1
+			elif x<7:
+				if y>1:
+					mask[i][(y-2)*8*127+(x+1)*127:(y-2)*8*127+(x+1)*127+127] = 1
+				if y<6:
+					mask[i][(y+2)*8*127+(x+1)*127:(y+2)*8*127+(x+1)*127+127] = 1
+		mask[64][::] = 1
+		return mask
 
 	def print_board_from_mask(mask):
 		for i in range(64):
@@ -592,13 +646,15 @@ def main():
 
 
 
-	compressed_mask = calculate_mask1()
-	mask1 = compressed_mask.unsqueeze(1).repeat(1, 127, 1).view(-1, compressed_mask.size(1))[:-63:]
-	mask2 = calculate_mask2()
+	compressed_mask1 = calculate_mask1()
+	mask1 = compressed_mask1.unsqueeze(1).repeat(1, 127, 1).view(-1, compressed_mask1.size(1))[:-63:]
+	#mask2 = calculate_mask2()
+	compressed_mask2 = calculate_mask2()
+	mask2 = compressed_mask2.unsqueeze(1).repeat(1, 127, 1).view(-1, compressed_mask2.size(1))[:-63:]
 	
 	print(mask1.size())
-	print(mask2.size())
-	"""
+	#print(mask2.size())
+	
 	"""
 	for i in range(64):
 		print_board_from_mask(compressed_mask[i])
@@ -611,7 +667,7 @@ def main():
 
 
 
-	net = Net_v2()
+	net = Net_v4(mask1, mask2)
 	saving_path = ""
 	#saving_path = "D:/private/chess engine/nets/2024-10-01_23-04-00/"
 	if saving_path=="":
@@ -634,8 +690,8 @@ def main():
 	epochs = 10
 
 	#mean absolute errors loss
-	#criterion = squareRootLoss()
-	criterion = nn.MSELoss()
+	criterion = squareRootLoss()
+	#criterion = nn.MSELoss()
 	optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
 
 	#for param_group in optimizer.param_groups:
