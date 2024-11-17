@@ -1,0 +1,27 @@
+batch_size: 512
+optimizer: Adam (
+Parameter Group 0
+    amsgrad: False
+    betas: (0.9, 0.999)
+    capturable: False
+    differentiable: False
+    eps: 1e-08
+    foreach: None
+    fused: None
+    initial_lr: 0.00025
+    lr: 0.00025
+    maximize: False
+    weight_decay: 0
+)
+criterion: squareRootLoss()
+device: cuda
+train_elements_number: 81365220
+test_elements_number: 1660516
+input_bin_file_train: D:/private/chess engine/data/x_train.bin
+label_bin_file_train: D:/private/chess engine/data/y_train.bin
+input_bin_file_test: D:/private/chess engine/data/x_test.bin
+label_bin_file_test: D:/private/chess engine/data/y_test.bin
+input_size: 790
+label_size: 16
+saving_path: D:/private/chess engine/nets/best_for_now
+scheduler_type: CosineAnnealingLR
