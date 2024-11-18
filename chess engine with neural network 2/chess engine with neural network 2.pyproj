@@ -23,7 +23,11 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="chess_engine_with_neural_network_2.py" />
+    <Compile Include="creating dataset.py" />
     <Compile Include="evaluation.py" />
+    <Compile Include="old.py" />
+    <Compile Include="testing.py" />
+    <Compile Include="without dataloader.py" />
   </ItemGroup>
   <ItemGroup>
     <InterpreterReference Include="Global|PythonCore|3.11" />
